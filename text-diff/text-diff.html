@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiffBox - 文本对比工具</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Overpass:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* 主题定义 */
+        :root {
+            --bg-dark: #0a0e1a;
+            --bg-medium: #141927;
+            --bg-light: #1e2538;
+            --accent-primary: #00d9ff;
+            --accent-secondary: #ff006e;
+            --accent-tertiary: #ffd60a;
+            --text-primary: #e8eaed;
+            --text-secondary: #9ba3b4;
+            --added-bg: rgba(34, 197, 94, 0.15);
+            --added-border: #22c55e;
+            --removed-bg: rgba(239, 68, 68, 0.15);
+            --removed-border: #ef4444;
+            --changed-bg: rgba(251, 191, 36, 0.15);
+            --changed-border: #fbbf24;
+        }
+
+        /* 赛博朋克主题（默认） */
+        [data-theme="cyber"] {
+            --bg-dark: #0a0e1a;
+            --bg-medium: #141927;
+            --bg-light: #1e2538;
+            --accent-primary: #00d9ff;
+            --accent-secondary: #ff006e;
+            --accent-tertiary: #ffd60a;
+            --text-primary: #e8eaed;
+            --text-secondary: #9ba3b4;
+        }
+
+        /* 森林主题 */
+        [data-theme="forest"] {
+            --bg-dark: #0f1e13;
+            --bg-medium: #1a2e1f;
+            --bg-light: #2a4331;
+            --accent-primary: #4ade80;
+            --accent-secondary: #fb923c;
+            --accent-tertiary: #fbbf24;
+            --text-primary: #e8f5e9;
+            --text-secondary: #a5b8aa;
+        }
+
+        /* 海洋主题 */
+        [data-theme="ocean"] {
+            --bg-dark: #0c1821;
+            --bg-medium: #1b2838;
+            --bg-light: #2c3e50;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #06b6d4;
+            --accent-tertiary: #8b5cf6;
+            --text-primary: #e0f2fe;
+            --text-secondary: #94a3b8;
+        }
+
+        /* 日落主题 */
+        [data-theme="sunset"] {
+            --bg-dark: #1a0f0a;
+            --bg-medium: #2d1810;
+            --bg-light: #4a2818;
+            --accent-primary: #f97316;
+            --accent-secondary: #ec4899;
+            --accent-tertiary: #fbbf24;
+            --text-primary: #fff7ed;
+            --text-secondary: #d4a574;
+        }
+
+        /* 紫罗兰主题 */
+        [data-theme="violet"] {
+            --bg-dark: #16101d;
+            --bg-medium: #261a30;
+            --bg-light: #3d2a4d;
+            --accent-primary: #a855f7;
+            --accent-secondary: #ec4899;
+            --accent-tertiary: #06b6d4;
+            --text-primary: #f5f3ff;
+            --text-secondary: #c4b5d4;
+        }
+
+        /* 极简白主题 */
+        [data-theme="minimal"] {
+            --bg-dark: #ffffff;
+            --bg-medium: #f8f9fa;
+            --bg-light: #e9ecef;
+            --accent-primary: #1a1a1a;
+            --accent-secondary: #495057;
+            --accent-tertiary: #6c757d;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --added-bg: rgba(34, 197, 94, 0.1);
+            --removed-bg: rgba(239, 68, 68, 0.1);
+            --changed-bg: rgba(251, 191, 36, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Overpass', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: background 0.5s ease, color 0.5s ease;
+        }
+
+        /* 背景动画效果 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle at 20% 50%, var(--accent-primary) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, var(--accent-secondary) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, var(--accent-tertiary) 0%, transparent 50%);
+            opacity: 0.1;
+            animation: drift 20s ease-in-out infinite;
+            z-index: 0;
+            transition: background 0.5s ease, opacity 0.5s ease;
+        }
+
+        [data-theme="minimal"] body::before {
+            opacity: 0.03;
+        }
+
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(5%, 10%) rotate(3deg); }
+            66% { transform: translate(-5%, -5%) rotate(-3deg); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            margin-bottom: 30px;
+            animation: slideDown 0.6s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            font-size: 4rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary), var(--accent-tertiary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -2px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 60px var(--accent-primary);
+            transition: all 0.5s ease;
+        }
+
+        [data-theme="minimal"] h1 {
+            text-shadow: none;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            animation: fadeIn 0.8s ease-out 0.2s both;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        button {
+            font-family: 'Overpass', sans-serif;
+            padding: 12px 30px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border: 2px solid var(--accent-primary);
+            background: transparent;
+            color: var(--accent-primary);
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-primary);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+
+        button:hover::before {
+            left: 0;
+        }
+
+        button:hover {
+            color: var(--bg-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px var(--accent-primary);
+        }
+
+        [data-theme="minimal"] button:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .clear-btn {
+            border-color: var(--accent-secondary);
+            color: var(--accent-secondary);
+        }
+
+        .clear-btn::before {
+            background: var(--accent-secondary);
+        }
+
+        .clear-btn:hover {
+            box-shadow: 0 10px 30px var(--accent-secondary);
+        }
+
+        [data-theme="minimal"] .clear-btn:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .mode-btn {
+            border-color: var(--accent-tertiary);
+            color: var(--accent-tertiary);
+        }
+
+        .mode-btn::before {
+            background: var(--accent-tertiary);
+        }
+
+        .mode-btn:hover {
+            box-shadow: 0 10px 30px var(--accent-tertiary);
+        }
+
+        [data-theme="minimal"] .mode-btn:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .theme-btn {
+            border-color: var(--accent-tertiary);
+            color: var(--accent-tertiary);
+            padding: 12px 20px;
+        }
+
+        .theme-btn::before {
+            background: var(--accent-tertiary);
+        }
+
+        .theme-btn:hover {
+            box-shadow: 0 10px 30px var(--accent-tertiary);
+        }
+
+        [data-theme="minimal"] .theme-btn:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .input-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+            animation: fadeIn 0.8s ease-out 0.4s both;
+        }
+
+        .input-box {
+            background: var(--bg-medium);
+            border: 2px solid var(--bg-light);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: border-color 0.3s ease, background 0.5s ease;
+        }
+
+        .input-box:hover {
+            border-color: var(--accent-primary);
+        }
+
+        .input-header {
+            background: var(--bg-light);
+            padding: 15px 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.5s ease;
+        }
+
+        .input-header::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+            transition: background 0.5s ease;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 20px;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            resize: vertical;
+            outline: none;
+        }
+
+        textarea::placeholder {
+            color: var(--text-secondary);
+            opacity: 0.5;
+        }
+
+        .output-section {
+            animation: fadeIn 0.8s ease-out 0.6s both;
+        }
+
+        .output-header {
+            background: var(--bg-medium);
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            border: 2px solid var(--bg-light);
+            border-bottom: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.5s ease, border-color 0.5s ease;
+        }
+
+        .output-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .stat-dot.added { background: var(--added-border); }
+        .stat-dot.removed { background: var(--removed-border); }
+        .stat-dot.changed { background: var(--changed-border); }
+
+        .output-content {
+            background: var(--bg-medium);
+            border: 2px solid var(--bg-light);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            padding: 20px;
+            min-height: 200px;
+            max-height: 600px;
+            overflow-y: auto;
+            transition: background 0.5s ease, border-color 0.5s ease;
+        }
+
+        .diff-container {
+            display: grid;
+            grid-template-columns: 50px 1fr 50px 1fr;
+            gap: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+
+        .line-number {
+            color: var(--text-secondary);
+            text-align: right;
+            user-select: none;
+            padding-right: 10px;
+            opacity: 0.5;
+        }
+
+        .line-content {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .line-added {
+            background: var(--added-bg);
+            border-left: 3px solid var(--added-border);
+            padding-left: 10px;
+            margin: 2px 0;
+        }
+
+        .line-removed {
+            background: var(--removed-bg);
+            border-left: 3px solid var(--removed-border);
+            padding-left: 10px;
+            margin: 2px 0;
+        }
+
+        .line-changed {
+            background: var(--changed-bg);
+            border-left: 3px solid var(--changed-border);
+            padding-left: 10px;
+            margin: 2px 0;
+        }
+
+        .line-unchanged {
+            opacity: 0.6;
+            padding-left: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 60px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-light);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-secondary);
+        }
+
+        @media (max-width: 1024px) {
+            .input-section {
+                grid-template-columns: 1fr;
+            }
+
+            .diff-container {
+                grid-template-columns: 40px 1fr;
+            }
+
+            h1 {
+                font-size: 3rem;
+            }
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            animation: fadeIn 1s ease-out 0.8s both;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DiffBox</h1>
+            <div class="subtitle">极速文本对比引擎</div>
+        </header>
+
+        <div class="controls">
+            <button onclick="compareTexts()">🔍 开始对比</button>
+            <button class="clear-btn" onclick="clearAll()">🗑️ 清空所有</button>
+            <button class="mode-btn" onclick="toggleMode()" id="modeBtn">
+                <span id="modeIcon">🇨🇳</span> <span id="modeText">智能模式</span>
+            </button>
+            <button class="theme-btn" onclick="cycleTheme()" id="themeBtn">
+                🎨 <span id="themeName">赛博朋克</span>
+            </button>
+        </div>
+
+        <div class="input-section">
+            <div class="input-box">
+                <div class="input-header">原始文本 (Left)</div>
+                <textarea id="text1" placeholder="在此粘贴或输入原始文本...
+智能模式：中文自动按句子分割，英文按行分割"></textarea>
+            </div>
+            <div class="input-box">
+                <div class="input-header">对比文本 (Right)</div>
+                <textarea id="text2" placeholder="在此粘贴或输入要对比的文本...
+智能模式：中文自动按句子分割，英文按行分割"></textarea>
+            </div>
+        </div>
+
+        <div class="output-section">
+            <div class="output-header">
+                <div class="output-title">对比结果</div>
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-dot added"></div>
+                        <span>新增: <span id="addedCount">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-dot removed"></div>
+                        <span>删除: <span id="removedCount">0</span></span>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-dot changed"></div>
+                        <span>修改: <span id="changedCount">0</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="output-content" id="output">
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚡</div>
+                    <p>输入文本后点击"开始对比"查看差异</p>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            手工打造 by 程序员 | 基于 Myers Diff 算法 | 支持中文句子级智能分割
+        </footer>
+    </div>
+
+    <script>
+        // 全局配置
+        let diffMode = 'smart'; // 'smart' 或 'line'
+        let currentTheme = 'cyber';
+        
+        const themes = [
+            { id: 'cyber', name: '赛博朋克', icon: '🤖' },
+            { id: 'forest', name: '森林绿', icon: '🌲' },
+            { id: 'ocean', name: '深海蓝', icon: '🌊' },
+            { id: 'sunset', name: '日落橙', icon: '🌅' },
+            { id: 'violet', name: '紫罗兰', icon: '💜' },
+            { id: 'minimal', name: '极简白', icon: '⚪' }
+        ];
+        
+        // 智能分割文本 - 中文按句子，英文按行
+        function smartSplit(text) {
+            // 如果是行模式，直接按行分割
+            if (diffMode === 'line') {
+                return text.split('\n');
+            }
+            
+            // 智能模式：检测是否主要是中文内容
+            const chineseChars = text.match(/[\u4e00-\u9fa5]/g);
+            const totalChars = text.replace(/\s/g, '').length;
+            const chineseRatio = chineseChars ? chineseChars.length / totalChars : 0;
+            
+            // 如果中文字符超过 30%，使用句子分割
+            if (chineseRatio > 0.3) {
+                return splitBySentence(text);
+            } else {
+                // 否则使用传统的行分割
+                return text.split('\n');
+            }
+        }
+        
+        // 按句子分割（支持中英文）
+        function splitBySentence(text) {
+            // 中文句子结束标记：。！？；
+            // 英文句子结束标记：. ! ? ;
+            // 保留换行符作为句子边界
+            const sentences = [];
+            let currentSentence = '';
+            
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                currentSentence += char;
+                
+                // 检查是否是句子结束标记
+                const isChinesePunctuation = /[。！？；]/.test(char);
+                const isEnglishPunctuation = /[.!?;]/.test(char);
+                
+                // 换行符总是作为句子分隔
+                if (char === '\n') {
+                    sentences.push(currentSentence);
+                    currentSentence = '';
+                    continue;
+                }
+                
+                // 中文标点：直接结束（不需要检查后面是否有空格）
+                if (isChinesePunctuation) {
+                    // 跳过后续的空格（如果有的话）
+                    while (text[i + 1] && text[i + 1] === ' ') {
+                        i++;
+                        currentSentence += text[i];
+                    }
+                    sentences.push(currentSentence);
+                    currentSentence = '';
+                    continue;
+                }
+                
+                // 英文标点：需要检查后面是否有空格或换行
+                if (isEnglishPunctuation) {
+                    const nextChar = text[i + 1];
+                    const isFollowedBySpaceOrEnd = !nextChar || /[\s\n]/.test(nextChar);
+                    
+                    if (isFollowedBySpaceOrEnd) {
+                        // 跳过后续空格
+                        while (text[i + 1] && text[i + 1] === ' ') {
+                            i++;
+                            currentSentence += text[i];
+                        }
+                        sentences.push(currentSentence);
+                        currentSentence = '';
+                    }
+                }
+            }
+            
+            // 添加剩余内容
+            if (currentSentence.trim()) {
+                sentences.push(currentSentence);
+            }
+            
+            return sentences.filter(s => s.trim().length > 0);
+        }
+
+        // Myers Diff 算法实现 - 单元级对比（行或句子）
+        function diff(text1, text2) {
+            const lines1 = smartSplit(text1);
+            const lines2 = smartSplit(text2);
+            
+            const n = lines1.length;
+            const m = lines2.length;
+            const max = n + m;
+            
+            const v = {};
+            const trace = [];
+            
+            v[1] = 0;
+            
+            for (let d = 0; d <= max; d++) {
+                trace.push({...v});
+                
+                for (let k = -d; k <= d; k += 2) {
+                    let x;
+                    
+                    if (k === -d || (k !== d && v[k - 1] < v[k + 1])) {
+                        x = v[k + 1];
+                    } else {
+                        x = v[k - 1] + 1;
+                    }
+                    
+                    let y = x - k;
+                    
+                    while (x < n && y < m && lines1[x] === lines2[y]) {
+                        x++;
+                        y++;
+                    }
+                    
+                    v[k] = x;
+                    
+                    if (x >= n && y >= m) {
+                        return backtrack(trace, lines1, lines2, d);
+                    }
+                }
+            }
+            
+            return [];
+        }
+        
+        function backtrack(trace, lines1, lines2, d) {
+            const result = [];
+            let x = lines1.length;
+            let y = lines2.length;
+            
+            for (let i = d; i >= 0; i--) {
+                const v = trace[i];
+                const k = x - y;
+                
+                let prevK;
+                if (k === -i || (k !== i && v[k - 1] < v[k + 1])) {
+                    prevK = k + 1;
+                } else {
+                    prevK = k - 1;
+                }
+                
+                const prevX = v[prevK];
+                const prevY = prevX - prevK;
+                
+                while (x > prevX && y > prevY) {
+                    result.unshift({
+                        type: 'unchanged',
+                        line1: x - 1,
+                        line2: y - 1,
+                        text: lines1[x - 1]
+                    });
+                    x--;
+                    y--;
+                }
+                
+                if (i > 0) {
+                    if (x > prevX) {
+                        result.unshift({
+                            type: 'removed',
+                            line1: x - 1,
+                            line2: null,
+                            text: lines1[x - 1]
+                        });
+                        x--;
+                    } else {
+                        result.unshift({
+                            type: 'added',
+                            line1: null,
+                            line2: y - 1,
+                            text: lines2[y - 1]
+                        });
+                        y--;
+                    }
+                }
+            }
+            
+            return result;
+        }
+
+        // 字符级 Diff - 用于高亮行内差异
+        function charDiff(str1, str2) {
+            const m = str1.length;
+            const n = str2.length;
+            const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+            
+            // 构建 LCS 矩阵
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    if (str1[i - 1] === str2[j - 1]) {
+                        dp[i][j] = dp[i - 1][j - 1] + 1;
+                    } else {
+                        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                    }
+                }
+            }
+            
+            // 回溯生成差异
+            const result = [];
+            let i = m, j = n;
+            
+            while (i > 0 || j > 0) {
+                if (i > 0 && j > 0 && str1[i - 1] === str2[j - 1]) {
+                    result.unshift({ type: 'equal', char: str1[i - 1] });
+                    i--;
+                    j--;
+                } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+                    result.unshift({ type: 'insert', char: str2[j - 1] });
+                    j--;
+                } else if (i > 0) {
+                    result.unshift({ type: 'delete', char: str1[i - 1] });
+                    i--;
+                }
+            }
+            
+            return result;
+        }
+
+        // 将字符级差异转换为 HTML
+        function renderCharDiff(str1, str2) {
+            const diffs = charDiff(str1, str2);
+            let html1 = '';
+            let html2 = '';
+            
+            for (const diff of diffs) {
+                const char = escapeHtml(diff.char);
+                
+                if (diff.type === 'equal') {
+                    html1 += char;
+                    html2 += char;
+                } else if (diff.type === 'delete') {
+                    html1 += `<span style="background: rgba(239, 68, 68, 0.4); text-decoration: line-through;">${char}</span>`;
+                } else if (diff.type === 'insert') {
+                    html2 += `<span style="background: rgba(34, 197, 94, 0.4); font-weight: bold;">${char}</span>`;
+                }
+            }
+            
+            return { html1, html2 };
+        }
+
+        // 检测相邻的删除和添加行，可能是修改
+        function detectModifiedLines(diffs) {
+            const result = [];
+            let i = 0;
+            
+            while (i < diffs.length) {
+                const current = diffs[i];
+                const next = diffs[i + 1];
+                
+                // 检测连续的删除和添加
+                if (current && next && 
+                    current.type === 'removed' && 
+                    next.type === 'added') {
+                    
+                    // 计算相似度
+                    const similarity = calculateSimilarity(current.text, next.text);
+                    
+                    // 如果相似度高于 30%，认为是修改而非完全替换
+                    if (similarity > 0.3) {
+                        result.push({
+                            type: 'modified',
+                            line1: current.line1,
+                            line2: next.line2,
+                            text1: current.text,
+                            text2: next.text
+                        });
+                        i += 2;
+                        continue;
+                    }
+                }
+                
+                result.push(current);
+                i++;
+            }
+            
+            return result;
+        }
+
+        // 计算两个字符串的相似度
+        function calculateSimilarity(str1, str2) {
+            const len1 = str1.length;
+            const len2 = str2.length;
+            
+            if (len1 === 0 && len2 === 0) return 1;
+            if (len1 === 0 || len2 === 0) return 0;
+            
+            const maxLen = Math.max(len1, len2);
+            const distance = levenshteinDistance(str1, str2);
+            
+            return 1 - (distance / maxLen);
+        }
+
+        // Levenshtein 距离算法
+        function levenshteinDistance(str1, str2) {
+            const m = str1.length;
+            const n = str2.length;
+            const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+            
+            for (let i = 0; i <= m; i++) dp[i][0] = i;
+            for (let j = 0; j <= n; j++) dp[0][j] = j;
+            
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    if (str1[i - 1] === str2[j - 1]) {
+                        dp[i][j] = dp[i - 1][j - 1];
+                    } else {
+                        dp[i][j] = Math.min(
+                            dp[i - 1][j] + 1,
+                            dp[i][j - 1] + 1,
+                            dp[i - 1][j - 1] + 1
+                        );
+                    }
+                }
+            }
+            
+            return dp[m][n];
+        }
+        
+        function compareTexts() {
+            const text1 = document.getElementById('text1').value;
+            const text2 = document.getElementById('text2').value;
+            
+            if (!text1 && !text2) {
+                alert('请至少输入一段文本！');
+                return;
+            }
+            
+            const diffs = diff(text1, text2);
+            const enhancedDiffs = detectModifiedLines(diffs);
+            renderDiff(enhancedDiffs, text1, text2);
+        }
+        
+        function renderDiff(diffs, text1, text2) {
+            const output = document.getElementById('output');
+            
+            // 获取分割单元名称
+            const units1 = smartSplit(text1);
+            const units2 = smartSplit(text2);
+            const unitName = getUnitName(text1, text2);
+            
+            let html = '<div class="diff-container">';
+            
+            let line1Num = 1;
+            let line2Num = 1;
+            let addedCount = 0;
+            let removedCount = 0;
+            let changedCount = 0;
+            
+            for (const diff of diffs) {
+                if (diff.type === 'unchanged') {
+                    html += `<div class="line-number">${line1Num}</div>`;
+                    html += `<div class="line-content line-unchanged">${escapeHtml(diff.text)}</div>`;
+                    html += `<div class="line-number">${line2Num}</div>`;
+                    html += `<div class="line-content line-unchanged">${escapeHtml(diff.text)}</div>`;
+                    line1Num++;
+                    line2Num++;
+                } else if (diff.type === 'modified') {
+                    // 修改的行 - 使用字符级对比
+                    const charDiffResult = renderCharDiff(diff.text1, diff.text2);
+                    
+                    html += `<div class="line-number">${line1Num}</div>`;
+                    html += `<div class="line-content line-changed">${charDiffResult.html1}</div>`;
+                    html += `<div class="line-number">${line2Num}</div>`;
+                    html += `<div class="line-content line-changed">${charDiffResult.html2}</div>`;
+                    line1Num++;
+                    line2Num++;
+                    changedCount++;
+                } else if (diff.type === 'removed') {
+                    html += `<div class="line-number">${line1Num}</div>`;
+                    html += `<div class="line-content line-removed">${escapeHtml(diff.text)}</div>`;
+                    html += `<div class="line-number">-</div>`;
+                    html += `<div class="line-content"></div>`;
+                    line1Num++;
+                    removedCount++;
+                } else if (diff.type === 'added') {
+                    html += `<div class="line-number">-</div>`;
+                    html += `<div class="line-content"></div>`;
+                    html += `<div class="line-number">${line2Num}</div>`;
+                    html += `<div class="line-content line-added">${escapeHtml(diff.text)}</div>`;
+                    line2Num++;
+                    addedCount++;
+                }
+            }
+            
+            html += '</div>';
+            output.innerHTML = html;
+            
+            // 更新统计
+            document.getElementById('addedCount').textContent = addedCount;
+            document.getElementById('removedCount').textContent = removedCount;
+            document.getElementById('changedCount').textContent = changedCount;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function clearAll() {
+            document.getElementById('text1').value = '';
+            document.getElementById('text2').value = '';
+            document.getElementById('output').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚡</div>
+                    <p>输入文本后点击"开始对比"查看差异</p>
+                </div>
+            `;
+            document.getElementById('addedCount').textContent = '0';
+            document.getElementById('removedCount').textContent = '0';
+            document.getElementById('changedCount').textContent = '0';
+        }
+        
+        // 获取单元名称（行/句）
+        function getUnitName(text1, text2) {
+            if (diffMode === 'line') {
+                return '行';
+            }
+            
+            const combinedText = text1 + text2;
+            const chineseChars = combinedText.match(/[\u4e00-\u9fa5]/g);
+            const totalChars = combinedText.replace(/\s/g, '').length;
+            const chineseRatio = chineseChars ? chineseChars.length / totalChars : 0;
+            
+            return chineseRatio > 0.3 ? '句' : '行';
+        }
+        
+        // 切换对比模式
+        function toggleMode() {
+            diffMode = diffMode === 'smart' ? 'line' : 'smart';
+            
+            const modeIcon = document.getElementById('modeIcon');
+            const modeText = document.getElementById('modeText');
+            
+            if (diffMode === 'smart') {
+                modeIcon.textContent = '🇨🇳';
+                modeText.textContent = '智能模式';
+            } else {
+                modeIcon.textContent = '📝';
+                modeText.textContent = '行模式';
+            }
+            
+            // 如果已经有对比结果，重新对比
+            const text1 = document.getElementById('text1').value;
+            const text2 = document.getElementById('text2').value;
+            if (text1 || text2) {
+                compareTexts();
+            }
+        }
+        
+        // 循环切换主题
+        function cycleTheme() {
+            const currentIndex = themes.findIndex(t => t.id === currentTheme);
+            const nextIndex = (currentIndex + 1) % themes.length;
+            const nextTheme = themes[nextIndex];
+            
+            currentTheme = nextTheme.id;
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            
+            const themeName = document.getElementById('themeName');
+            const themeBtn = document.getElementById('themeBtn');
+            themeName.textContent = nextTheme.name;
+            themeBtn.innerHTML = `${nextTheme.icon} <span id="themeName">${nextTheme.name}</span>`;
+            
+            // 保存主题偏好
+            localStorage.setItem('diffTheme', currentTheme);
+        }
+        
+        // 初始化主题
+        function initTheme() {
+            const savedTheme = localStorage.getItem('diffTheme');
+            if (savedTheme && themes.find(t => t.id === savedTheme)) {
+                currentTheme = savedTheme;
+                const theme = themes.find(t => t.id === currentTheme);
+                document.documentElement.setAttribute('data-theme', currentTheme);
+                document.getElementById('themeName').textContent = theme.name;
+                document.getElementById('themeBtn').innerHTML = `${theme.icon} <span id="themeName">${theme.name}</span>`;
+            }
+        }
+        
+        // 页面加载时初始化主题
+        document.addEventListener('DOMContentLoaded', initTheme);
+        
+        // 支持快捷键
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                compareTexts();
+            }
+        });
+    </script>
+</body>
+</html>
